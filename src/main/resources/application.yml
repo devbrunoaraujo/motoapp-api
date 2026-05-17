@@ -1,0 +1,183 @@
+# =============================================================================
+# application.yml — Arquivo de configuração central do Spring Boot
+# =============================================================================
+#
+# O Spring Boot lê este arquivo automaticamente na inicialização.
+# Ele substitui o antigo application.properties (mais legível com YAML).
+#
+# YAML usa indentação para estrutura hierárquica — NUNCA use tabs, só espaços.
+# Cada nível de indentação = 2 espaços.
+#
+# CONCEITO: Profiles
+# O Spring Boot permite ter configurações diferentes por ambiente:
+#   application.yml          → configurações base (sempre carregadas)
+#   application-dev.yml      → sobrescreve só em desenvolvimento
+#   application-prod.yml     → sobrescreve só em produção
+#
+# Para ativar um profile:
+#   java -jar app.jar --spring.profiles.active=prod
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# SERVIDOR
+# -----------------------------------------------------------------------------
+server:
+  # Porta onde o Tomcat vai escutar requisições HTTP
+  # Padrão do Spring Boot é 8080 — mantemos para desenvolvimento
+  port: 8080
+
+  # Configura como as URLs de erro são tratadas
+  error:
+    # Não expõe detalhes internos do erro para o cliente (segurança)
+    # Em produção NUNCA exponha stack traces via HTTP
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+
+# -----------------------------------------------------------------------------
+# SPRING — Configurações do framework
+# -----------------------------------------------------------------------------
+spring:
+
+  # Nome da aplicação (usado em logs e monitoramento)
+  application:
+    name: motoapp-api
+
+  # ---------------------------------------------------------------------------
+  # BANCO DE DADOS — DataSource
+  # ---------------------------------------------------------------------------
+  # O Spring Boot usa estas configurações para criar o pool de conexões
+  # automaticamente (HikariCP — o pool padrão e mais rápido do mercado).
+  #
+  # Pool de conexões = um conjunto de conexões abertas e prontas para uso.
+  # Em vez de abrir/fechar uma conexão a cada requisição (lento),
+  # o HikariCP mantém N conexões abertas e as reutiliza.
+  datasource:
+    # URL de conexão JDBC:
+    # jdbc:mysql://          → protocolo
+    # localhost:3306/        → host:porta
+    # motoapp_db             → nome do banco (crie antes no MySQL)
+    # ?createDatabaseIfNotExist=true → cria o banco se não existir
+    # &useSSL=false          → sem SSL em desenvolvimento
+    # &serverTimezone=America/Sao_Paulo → timezone do MySQL
+    # &allowPublicKeyRetrieval=true → necessário para MySQL 8+
+    url: jdbc:mysql://localhost:3306/motoapp_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=America/Sao_Paulo&allowPublicKeyRetrieval=true
+
+    # Credenciais do banco — em produção use variáveis de ambiente:
+    # username: ${DB_USERNAME}
+    # password: ${DB_PASSWORD}
+    username: root
+    password:
+
+    # Driver JDBC do MySQL (o Spring Boot detecta automaticamente
+    # pelo mysql-connector-j no pom.xml, mas é boa prática explicitar)
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # ---------------------------------------------------------------------------
+  # JPA / HIBERNATE — Configurações do ORM
+  # ---------------------------------------------------------------------------
+  jpa:
+    # Dialeto SQL que o Hibernate deve gerar
+    # MySQL8Dialect → otimizações específicas para MySQL 8+
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+
+    # CONCEITO CRUCIAL: ddl-auto — o que o Hibernate faz com o schema do banco
+    #
+    # none        → não faz nada (produção: você gerencia o schema manualmente)
+    # validate    → verifica se o schema bate com as entidades (produção/staging)
+    # update      → atualiza o schema sem apagar dados (desenvolvimento cuidadoso)
+    # create      → recria do zero ao iniciar (apaga todos os dados!)
+    # create-drop → cria ao iniciar, apaga ao encerrar (testes automatizados)
+    #
+    # REGRA DE OURO:
+    # desenvolvimento → update (mantém dados entre reinicializações)
+    # produção        → none ou validate (NUNCA deixe o Hibernate alterar
+    #                   o schema de produção automaticamente)
+    hibernate:
+      ddl-auto: update
+
+    # Mostra o SQL gerado pelo Hibernate no console
+    # Muito útil para entender o que o JPA está fazendo por baixo
+    # Em produção: false (performance e segurança)
+    show-sql: true
+
+    properties:
+      hibernate:
+        # Formata o SQL no console para ficar legível (funciona com show-sql: true)
+        format_sql: true
+
+        # Timezone do Hibernate — deve bater com o do banco
+        jdbc:
+          time_zone: America/Sao_Paulo
+
+  # ---------------------------------------------------------------------------
+  # JACKSON — Serialização/Desserialização JSON
+  # ---------------------------------------------------------------------------
+  # Jackson é a biblioteca que converte objetos Java ↔ JSON automaticamente.
+  # Toda vez que seu Controller recebe ou retorna JSON, o Jackson trabalha.
+  jackson:
+    # Formato de datas no JSON: "2024-05-15" em vez de timestamp numérico
+    serialization:
+      write-dates-as-timestamps: false
+
+    # Não quebra se o JSON recebido tiver um campo que não existe no DTO
+    # (útil para manter compatibilidade quando o frontend enviar campos extras)
+    deserialization:
+      fail-on-unknown-properties: false
+
+    # Converte nomes de campos: camelCase (Java) ↔ snake_case (JSON)
+    # Exemplo: grossEarnings → gross_earnings no JSON
+    property-naming-strategy: SNAKE_CASE
+
+    # Não inclui campos null no JSON de resposta (resposta mais limpa)
+    default-property-inclusion: non_null
+
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÕES CUSTOMIZADAS — Nossa aplicação
+# -----------------------------------------------------------------------------
+# Podemos criar nossas próprias propriedades aqui.
+# Para lê-las, usamos @Value("${app.jwt.secret}") nos nossos beans.
+# Ou melhor ainda: @ConfigurationProperties (veremos em breve).
+# -----------------------------------------------------------------------------
+app:
+  jwt:
+    # Chave secreta para assinar os tokens JWT
+    # CRÍTICO: Em produção, use uma chave forte (mínimo 256 bits / 32 chars)
+    # e NUNCA commite a chave real no git — use variáveis de ambiente:
+    # secret: ${JWT_SECRET}
+    #
+    # Esta chave deve ser uma string Base64 ou qualquer string longa e aleatória.
+    # Sugestão para produção: openssl rand -base64 64
+    secret: motoapp-jwt-secret-key-development-only-change-in-production-2024
+
+    # Tempo de expiração do token em milissegundos
+    # 86400000 ms = 24 horas
+    # Após este tempo, o usuário precisa fazer login novamente
+    expiration: 86400000
+
+  cors:
+    # Origens permitidas para acessar a API (frontend React)
+    # Em desenvolvimento: Vite roda na porta 5173 por padrão
+    # Em produção: coloque o domínio real do frontend
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:3000
+
+# -----------------------------------------------------------------------------
+# LOGGING — Configuração de logs
+# -----------------------------------------------------------------------------
+logging:
+  level:
+    # Log do Hibernate (mostra parâmetros das queries — útil em dev)
+    # Nível DEBUG mostra os valores reais substituídos nos prepared statements
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+    # Log da nossa aplicação
+    # INFO = logs gerais | DEBUG = logs detalhados de desenvolvimento
+    com.motoapp: DEBUG
+
+    # Log do Spring Security (útil para debugar problemas de autenticação)
+    org.springframework.security: DEBUG

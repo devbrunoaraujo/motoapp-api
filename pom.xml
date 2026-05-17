@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════
+    PARENT — Spring Boot BOM (Bill of Materials)
+    ═══════════════════════════════════════════════════════════════════
+    O "parent" define as versões de todas as dependências Spring de
+    forma centralizada. Ao herdar deste parent, não precisamos declarar
+    versões individualmente para cada biblioteca Spring — ele gerencia
+    tudo por nós. É como um "contrato de versões" do ecossistema.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.0</version>
+        <relativePath/>
+    </parent>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════
+    IDENTIDADE DO PROJETO
+    ═══════════════════════════════════════════════════════════════════
+    groupId    → como um "pacote/empresa" (convenção: domínio invertido)
+    artifactId → nome do projeto (usado no nome do .jar gerado)
+    version    → versão atual do nosso projeto
+    packaging  → jar = gera um .jar executável (não .war para servidor externo)
+    name       → nome legível para humanos
+    -->
+    <groupId>com.motoapp</groupId>
+    <artifactId>motoapp-api</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>MotoApp API</name>
+    <description>API REST para o sistema SaaS de motoristas de aplicativo</description>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════
+    PROPRIEDADES GLOBAIS
+    ═══════════════════════════════════════════════════════════════════
+    Define variáveis reutilizáveis no POM. O Spring Boot parent já
+    lê java.version para configurar o compilador automaticamente.
+    -->
+    <properties>
+        <java.version>21</java.version>
+
+        <!-- Versão da biblioteca JWT (não é Spring, por isso declaramos) -->
+        <jjwt.version>0.12.5</jjwt.version>
+    </properties>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════
+    DEPENDÊNCIAS
+    ═══════════════════════════════════════════════════════════════════
+    Cada <dependency> é uma biblioteca que o Maven vai baixar
+    automaticamente do repositório central (Maven Central).
+
+    scope padrão = "compile" → disponível em compilação e em runtime
+    scope "test"             → só disponível nos testes
+    scope "provided"         → o servidor já fornece (não empacota no jar)
+    ═══════════════════════════════════════════════════════════════════
+    -->
+    <dependencies>
+
+        <!--
+        ── 1. SPRING WEB ─────────────────────────────────────────────
+        Adiciona o servidor web embutido (Tomcat por padrão) e
+        todo o suporte para criar APIs REST com @RestController,
+        @GetMapping, @PostMapping etc.
+        Sem isso não teríamos um servidor HTTP rodando.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+        ── 2. SPRING DATA JPA ────────────────────────────────────────
+        JPA = Java Persistence API (padrão para ORM em Java)
+        Hibernate é a implementação do JPA que o Spring usa.
+        Isso nos permite criar @Entity para mapear classes Java
+        em tabelas do banco sem escrever SQL manualmente para
+        operações básicas (CRUD).
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!--
+        ── 3. SPRING SECURITY ────────────────────────────────────────
+        Framework de segurança do Spring. Cuida de:
+        - Autenticação (quem é você?)
+        - Autorização (o que você pode fazer?)
+        Vamos configurá-lo para usar JWT em vez de sessões.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!--
+        ── 4. VALIDATION ─────────────────────────────────────────────
+        Permite usar anotações como @NotNull, @Email, @Size
+        nos nossos DTOs para validar dados de entrada
+        sem precisar escrever if/else manualmente.
+        Usa Hibernate Validator como implementação.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+        ── 5. MYSQL DRIVER ───────────────────────────────────────────
+        Driver JDBC do MySQL. O JDBC (Java Database Connectivity)
+        é a ponte entre o Java e o banco de dados.
+        O Spring/Hibernate usam esse driver internamente.
+        runtime = não precisamos importar no código, só em execução.
+        -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+        ── 6. JWT — JJWT ─────────────────────────────────────────────
+        Biblioteca para criar e validar JSON Web Tokens (JWT).
+        JWT é o mecanismo que usaremos para autenticação stateless:
+        o token gerado no login é enviado em cada requisição,
+        eliminando a necessidade de sessões no servidor.
+
+        São 3 artefatos separados:
+        - jjwt-api      → interfaces/contratos (compile)
+        - jjwt-impl     → implementação (runtime — não importamos no código)
+        - jjwt-jackson  → serialização JSON dos claims (runtime)
+        -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+        ── 7. LOMBOK ─────────────────────────────────────────────────
+        Biblioteca que gera código boilerplate automaticamente
+        via anotações em tempo de compilação. Exemplos:
+        @Getter       → gera todos os getters
+        @Setter       → gera todos os setters
+        @Builder      → implementa o padrão Builder
+        @NoArgsConstructor → construtor sem argumentos
+        @AllArgsConstructor → construtor com todos os argumentos
+        @Data         → @Getter + @Setter + @ToString + @EqualsAndHashCode
+
+        Isso elimina centenas de linhas de código repetitivo.
+        "provided" porque o Lombok só age no compile-time (annotation processor).
+        -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+        ── 8. SPRING DEVTOOLS ────────────────────────────────────────
+        Ferramentas de desenvolvimento:
+        - Live reload: reinicia o app automaticamente ao salvar arquivos
+        - Configurações relaxadas para desenvolvimento
+        Não vai para produção (optional = true).
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+        ── 9. TESTES ─────────────────────────────────────────────────
+        Inclui JUnit 5, Mockito e AssertJ para escrever testes
+        unitários e de integração. O Spring Test cuida do contexto
+        do Spring durante os testes.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+        Testes específicos de segurança Spring (ex: testar endpoints
+        protegidos com @WithMockUser)
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════
+    BUILD — Plugins Maven
+    ═══════════════════════════════════════════════════════════════════
+    -->
+    <build>
+        <plugins>
+
+            <!--
+            ── SPRING BOOT MAVEN PLUGIN ──────────────────────────────
+            Responsável por:
+            1. Empacotar tudo em um único .jar executável ("fat jar")
+               que inclui o Tomcat embutido e todas as dependências
+            2. Permitir `mvn spring-boot:run` para rodar localmente
+            3. Excluir o Lombok do jar final (só precisamos no compile)
+
+            Para rodar: mvn spring-boot:run
+            Para gerar o jar: mvn package
+            Para executar o jar: java -jar target/motoapp-api-1.0.0.jar
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
