@@ -5,24 +5,30 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
 @Setter
 @NoArgsConstructor
-@Builder
 @AllArgsConstructor
+@Builder
 @ToString(exclude = "subscriptions")
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
 @Entity
 @Table(name = "plans")
-public class Plan {
+// =============================================================================
+// extends BaseEntity → herda id, createdAt, updatedAt, @PrePersist, @PreUpdate
+// Removemos daqui todos esses campos que estavam duplicados.
+// =============================================================================
+public class Plan extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Override
     @EqualsAndHashCode.Include
-    private Long id;
+    public Long getId() {
+        return super.getId();
+    }
+
+    // ── Dados do plano ────────────────────────────────────────────────────────
 
     @Column(nullable = false, length = 100)
     @NotBlank(message = "Nome do plano é obrigatório")
@@ -34,20 +40,18 @@ public class Plan {
 
     /*
      * NUNCA use double/float para dinheiro em Java.
-     * double: 19.90 * 3 = 59.699999999999996 (imprecisão binária)
+     * double: 19.90 * 3 = 59.699999999999996 (imprecisão binária de ponto flutuante)
      * BigDecimal: new BigDecimal("19.90").multiply(new BigDecimal("3")) = 59.70
      *
-     * precision=10, scale=2 → DECIMAL(10,2) no MySQL (ex: 99999999.99)
+     * precision=10, scale=2 → DECIMAL(10,2) no MySQL: máximo 99999999.99
      */
     @Column(nullable = false, precision = 10, scale = 2)
     @NotNull(message = "Preço é obrigatório")
     @DecimalMin(value = "0.00", message = "Preço não pode ser negativo")
     private BigDecimal price;
 
-    /*
-     * Enum definido dentro da Entity porque só faz sentido aqui.
-     * Se fosse usado em múltiplas entities, iria para arquivo separado.
-     */
+    // ── Enums ─────────────────────────────────────────────────────────────────
+
     public enum BillingCycle {
         MONTHLY,  // cobrança mensal
         YEARLY    // cobrança anual (geralmente com desconto)
@@ -59,12 +63,11 @@ public class Plan {
     private BillingCycle billingCycle = BillingCycle.MONTHLY;
 
     /*
-     * Features do plano armazenadas como JSON no banco.
-     * @Convert usa o StringListConverter abaixo para serializar/deserializar.
-     * Exemplo no banco: ["Dashboard","Registro diário","Relatórios mensais"]
+     * Features do plano como JSON no banco via AttributeConverter.
+     * Exemplo armazenado: ["Dashboard financeiro","Registro diário","Relatórios mensais"]
      *
-     * Alternativa mais robusta: tabela separada "plan_features".
-     * Para exibição simples no frontend, JSON é pragmático e suficiente.
+     * @Convert → instrui o JPA a usar StringListConverter para
+     *            serializar (Java→banco) e deserializar (banco→Java).
      */
     @Convert(converter = StringListConverter.class)
     @Column(columnDefinition = "TEXT")
@@ -79,60 +82,33 @@ public class Plan {
     @Builder.Default
     private Boolean active = true;
 
+    // ── Relacionamentos ───────────────────────────────────────────────────────
+
     /*
-     * RELACIONAMENTO @OneToMany
-     *
-     * mappedBy = "plan" → o lado dono é Subscription (quem tem a FK no banco).
-     *                      Plan é o lado inverso — não gerencia a coluna.
-     *
-     * fetch = LAZY → NÃO carrega assinaturas ao buscar um plano.
-     *                Evita o problema SELECT N+1:
-     *                  10 planos = 1 query
-     *                  EAGER carregaria subscriptions de cada plano = 11 queries
-     *                  LAZY + busca explícita quando necessário = melhor opção
-     *
-     * cascade = {} (nenhum) → deletar um plano NÃO deleta assinaturas.
-     *                          Preservamos histórico financeiro.
+     * mappedBy = "plan" → Subscription é o lado DONO (tem a FK plan_id no banco).
+     *                      Plan é o lado INVERSO — não gerencia a coluna.
+     * fetch = LAZY      → não carrega subscriptions ao buscar um plano.
+     * cascade = {}      → deletar um plano NÃO deleta assinaturas (preserva histórico).
      */
     @OneToMany(mappedBy = "plan", fetch = FetchType.LAZY)
     private List<Subscription> subscriptions;
-
-    // ── Auditoria ─────────────────────────────────────────────────────────────
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 
     // =========================================================================
     // CONVERTER — List<String> ↔ JSON TEXT no banco
     // =========================================================================
     //
     // AttributeConverter<X, Y>:
-    //   X = tipo Java que queremos usar no código  → List<String>
-    //   Y = tipo que vai para o banco              → String (JSON)
+    //   X = tipo Java → List<String>
+    //   Y = tipo banco → String (TEXT com JSON)
     //
-    // Classe estática interna porque só é usada aqui em Plan.
-    // Se outros entities precisassem, moveria para com.motoapp.config.
+    // Classe estática interna: só usada aqui em Plan.
+    // Se outra entity precisasse, extrairíamos para com.motoapp.config.
     // =========================================================================
     @Converter
     public static class StringListConverter
             implements AttributeConverter<List<String>, String> {
 
-        // Java → Banco: List<String> vira JSON string
-        // ["Dashboard financeiro","Registro diário","Relatórios mensais"]
+        // Java → Banco: serializa List<String> para JSON string
         @Override
         public String convertToDatabaseColumn(List<String> list) {
             if (list == null || list.isEmpty()) return "[]";
@@ -140,20 +116,20 @@ public class Plan {
             StringBuilder sb = new StringBuilder("[");
             for (int i = 0; i < list.size(); i++) {
                 sb.append("\"")
-                        .append(list.get(i).replace("\"", "\\\""))
-                        .append("\"");
+                  .append(list.get(i).replace("\"", "\\\""))
+                  .append("\"");
                 if (i < list.size() - 1) sb.append(",");
             }
             return sb.append("]").toString();
         }
 
-        // Banco → Java: JSON string vira List<String>
+        // Banco → Java: deserializa JSON string para List<String>
         @Override
         public List<String> convertToEntityAttribute(String dbData) {
             if (dbData == null || dbData.isBlank() || dbData.equals("[]")) {
                 return List.of();
             }
-            // Remove [ ] e aspas, divide pela vírgula
+            // Remove colchetes e aspas, divide por vírgula
             String cleaned = dbData.trim()
                     .replaceAll("^\\[|\\]$", "")
                     .replaceAll("\"", "");
