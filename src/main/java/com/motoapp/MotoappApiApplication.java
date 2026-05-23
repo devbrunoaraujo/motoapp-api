@@ -60,7 +60,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Isso é Injeção de Dependência — um dos pilares do Spring.
  */
 @SpringBootApplication
-public class MotoAppApplication {
+public class MotoappApiApplication {
 
     /*
      * ═══════════════════════════════════════════════════════════════════════
@@ -102,6 +102,6 @@ public class MotoAppApplication {
          * MotoAppApplication.class → diz ao Spring onde está o pacote
          * raiz para começar o ComponentScan (com.motoapp)
          */
-        SpringApplication.run(MotoAppApplication.class, args);
+        SpringApplication.run(MotoappApiApplication.class, args);
     }
 }

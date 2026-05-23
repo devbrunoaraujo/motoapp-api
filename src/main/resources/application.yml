@@ -81,7 +81,7 @@ spring:
   jpa:
     # Dialeto SQL que o Hibernate deve gerar
     # MySQL8Dialect → otimizações específicas para MySQL 8+
-    database-platform: org.hibernate.dialect.MySQL8Dialect
+    database-platform: org.hibernate.dialect.MySQLDialect
 
     # CONCEITO CRUCIAL: ddl-auto — o que o Hibernate faz com o schema do banco
     #
@@ -96,7 +96,7 @@ spring:
     # produção        → none ou validate (NUNCA deixe o Hibernate alterar
     #                   o schema de produção automaticamente)
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
     # Mostra o SQL gerado pelo Hibernate no console
     # Muito útil para entender o que o JPA está fazendo por baixo
